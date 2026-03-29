@@ -3,7 +3,7 @@
  * All fetch calls go through these functions for consistent error handling.
  */
 
-const API_BASE = '/api';  // Relative URL — works locally and in prod
+const API_BASE = window.location.origin + '/api';
 
 // ─────────────────────────────────────────────
 // CORE FETCH WRAPPER
