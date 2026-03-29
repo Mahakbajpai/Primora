@@ -9,8 +9,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 
-from backend.database import engine, Base
-from backend.routes import vendors, products, purchase_orders
+from database import engine, Base
+from routes import vendors, products, purchase_orders
 
 # Auto-create all tables on startup (use Alembic for production migrations)
 Base.metadata.create_all(bind=engine)
