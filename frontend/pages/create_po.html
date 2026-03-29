@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Primora — Create Purchase Order</title>
+  <link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+<body>
+
+<nav class="navbar" id="main-navbar"></nav>
+
+<div class="page-wrapper">
+
+  <div class="tagline-banner">
+    <span style="font-size:1.2rem;">✦</span>
+    <span class="tagline-text">Smart Purchase Order &amp; Vendor Management System</span>
+  </div>
+
+  <div class="page-header">
+    <div class="page-title">Create <span>Purchase Order</span></div>
+    <div class="page-subtitle">Select vendor · Add products · Auto 5% tax calculation</div>
+  </div>
+
+  <div class="discount-banner">
+    <span class="discount-pill">20% OFF</span>
+    <div>
+      <div style="font-size:0.875rem; color:var(--text-primary); font-weight:500;">First-time user pricing applied</div>
+      <div style="font-size:0.75rem; color:var(--text-muted);">
+        <span class="strikethrough">₹4,999/mo</span> → <strong style="color:var(--accent);">₹3,999/mo</strong>
+        &nbsp;·&nbsp; Primora Pro Plan
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns:1fr 340px; gap:1.5rem; align-items:start;">
+
+    <!-- LEFT FORM -->
+    <div>
+      <!-- Step 1 -->
+      <div class="card" style="margin-bottom:1.5rem;">
+        <div class="card-header"><span class="card-title">STEP 1 — SELECT VENDOR</span></div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Vendor</label>
+            <select class="form-select" id="vendor-select">
+              <option value="">Loading vendors…</option>
+            </select>
+          </div>
+          <div id="vendor-info" style="display:none; padding:10px 12px; background:var(--bg-elevated); border-radius:var(--radius); border:1px solid var(--border); font-size:0.85rem;"></div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="card" style="margin-bottom:1.5rem;">
+        <div class="card-header">
+          <span class="card-title">STEP 2 — ADD PRODUCTS</span>
+          <button class="btn btn-secondary btn-sm" onclick="addProductRow()">+ Add Row</button>
+        </div>
+        <div class="card-body">
+          <div style="display:grid; grid-template-columns:1fr 100px 120px 120px auto;
+                      gap:0.75rem; padding-bottom:8px; margin-bottom:4px; border-bottom:1px solid var(--border);">
+            <div class="form-label" style="margin:0;">Product</div>
+            <div class="form-label" style="margin:0;">Qty</div>
+            <div class="form-label" style="margin:0;">Unit Price</div>
+            <div class="form-label" style="margin:0;">Line Total</div>
+            <div></div>
+          </div>
+          <div id="items-container"></div>
+          <button class="btn btn-ghost btn-sm"
+                  style="margin-top:0.75rem; width:100%; justify-content:center; border:1px dashed var(--border);"
+                  onclick="addProductRow()">＋ Add another product row</button>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div style="display:flex; gap:1rem;">
+        <button class="btn btn-primary btn-lg" style="flex:1; justify-content:center;" onclick="submitOrder()">
+          🛒 Create Purchase Order
+        </button>
+        <a href="/dashboard" class="btn btn-secondary btn-lg">Cancel</a>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div style="position:sticky; top:80px;">
+      <div class="card" style="margin-bottom:1rem;">
+        <div class="card-header"><span class="card-title">ORDER SUMMARY</span></div>
+        <div class="card-body">
+          <div id="summary-items" style="display:flex; flex-direction:column; gap:8px; margin-bottom:1rem; min-height:60px;">
+            <div style="color:var(--text-muted); font-size:0.8rem; font-family:var(--font-mono);">No items added yet.</div>
+          </div>
+          <div class="totals-panel" style="margin-top:0;">
+            <div class="totals-row"><span class="label">Subtotal</span><span class="value" id="sum-subtotal">₹0.00</span></div>
+            <div class="totals-row"><span class="label">Tax <span class="tax-note">(5%)</span></span><span class="value" id="sum-tax">₹0.00</span></div>
+            <div class="totals-row divider grand-total"><span>TOTAL</span><span id="sum-total">₹0.00</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Panel -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">AI ASSIST</span>
+          <span class="ai-badge">✦ BETA</span>
+        </div>
+        <div class="card-body">
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">
+            Select a product then click <strong style="color:var(--text-secondary);">Generate</strong> for an AI marketing description.
+          </p>
+          <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
+            <select class="form-select" id="ai-product-select" style="flex:1;">
+              <option value="">Select product…</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="generateDescription()">✨ Generate</button>
+          </div>
+          <div id="ai-result" style="display:none;">
+            <div class="ai-description-box" id="ai-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/shared.js"></script>
+<script>
+  if (!sessionStorage.getItem('poms_auth')) window.location.href = '/';
+
+  injectNavbar('create-po');
+  injectWhatsApp();
+  injectFooter();
+
+  let products = [];
+  let rowCount = 0;
+
+  async function init() {
+    try {
+      const [vendors, prods] = await Promise.all([API.getVendors(), API.getProducts()]);
+      products = prods;
+
+      const vendorSel = document.getElementById('vendor-select');
+      vendorSel.innerHTML = '<option value="">— Select a vendor —</option>' +
+        vendors.map(v => `<option value="${v.id}" data-contact="${v.contact}" data-rating="${v.rating}">${v.name}</option>`).join('');
+      vendorSel.addEventListener('change', showVendorInfo);
+
+      const aiSel = document.getElementById('ai-product-select');
+      aiSel.innerHTML = '<option value="">Select product…</option>' +
+        products.map(p => `<option value="${p.id}" data-name="${p.name}">${p.name}</option>`).join('');
+
+      addProductRow();
+    } catch (err) {
+      showToast('Failed to load data: ' + err.message, 'error');
+    }
+  }
+
+  function showVendorInfo() {
+    const sel = document.getElementById('vendor-select');
+    const opt = sel.selectedOptions[0];
+    const info = document.getElementById('vendor-info');
+    if (!sel.value) { info.style.display = 'none'; return; }
+    const rating = parseFloat(opt.dataset.rating) || 0;
+    info.style.display = 'block';
+    info.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="color:var(--text-primary); font-weight:500;">${opt.text}</div>
+          <div style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-muted);">${opt.dataset.contact}</div>
+        </div>
+        <div style="font-family:var(--font-mono); font-size:0.9rem; color:var(--warning);">
+          ${'★'.repeat(Math.round(rating))}${'☆'.repeat(5-Math.round(rating))}
+          <span style="font-size:0.7rem; color:var(--text-muted); margin-left:4px;">${rating.toFixed(1)}</span>
+        </div>
+      </div>`;
+  }
+
+  function addProductRow() {
+    rowCount++;
+    const id = `row-${rowCount}`;
+    const row = document.createElement('div');
+    row.className = 'product-row';
+    row.id = id;
+    row.innerHTML = `
+      <div>
+        <div class="row-label">Product</div>
+        <select class="form-select" onchange="onProductChange(this, '${id}')">
+          <option value="">— Select —</option>
+          ${products.map(p => `<option value="${p.id}" data-price="${p.unit_price}" data-stock="${p.stock_level}" data-name="${p.name}">${p.name} (Stock: ${p.stock_level})</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <div class="row-label">Qty</div>
+        <input type="number" class="form-control" min="1" value="1" id="qty-${id}" oninput="recalcRow('${id}')" />
+      </div>
+      <div>
+        <div class="row-label">Unit Price</div>
+        <div class="price-display" id="price-${id}">—</div>
+      </div>
+      <div>
+        <div class="row-label">Line Total</div>
+        <div class="price-display" id="linetotal-${id}" style="color:var(--text-primary);">—</div>
+      </div>
+      <div style="padding-top:18px;">
+        <button class="btn btn-danger btn-sm" onclick="removeRow('${id}')">✕</button>
+      </div>
+    `;
+    document.getElementById('items-container').appendChild(row);
+    updateSummary();
+  }
+
+  function onProductChange(select, rowId) {
+    const opt = select.selectedOptions[0];
+    const price = parseFloat(opt?.dataset?.price) || 0;
+    const stock = parseInt(opt?.dataset?.stock) || 0;
+    document.getElementById(`price-${rowId}`).textContent = price ? formatCurrency(price) : '—';
+    const qtyInput = document.getElementById(`qty-${rowId}`);
+    qtyInput.max = stock;
+    if (parseInt(qtyInput.value) > stock) qtyInput.value = stock;
+    recalcRow(rowId);
+  }
+
+  function recalcRow(rowId) {
+    const row = document.getElementById(rowId);
+    const opt = row.querySelector('select').selectedOptions[0];
+    const price = parseFloat(opt?.dataset?.price) || 0;
+    const qty = parseInt(document.getElementById(`qty-${rowId}`).value) || 0;
+    const lineTotal = price * qty;
+    document.getElementById(`linetotal-${rowId}`).textContent = lineTotal > 0 ? formatCurrency(lineTotal) : '—';
+    updateSummary();
+  }
+
+  function removeRow(rowId) {
+    if (document.querySelectorAll('.product-row').length <= 1) { showToast('At least one product required.', 'info'); return; }
+    document.getElementById(rowId)?.remove();
+    updateSummary();
+  }
+
+  function updateSummary() {
+    let subtotal = 0;
+    const summaryItems = [];
+    document.querySelectorAll('.product-row').forEach(row => {
+      const opt = row.querySelector('select')?.selectedOptions[0];
+      if (!opt?.value) return;
+      const price = parseFloat(opt.dataset.price) || 0;
+      const qty = parseInt(row.querySelector('input[type=number]')?.value) || 0;
+      const lineTotal = price * qty;
+      subtotal += lineTotal;
+      if (lineTotal > 0) summaryItems.push({ name: opt.dataset.name, qty, lineTotal });
+    });
+    const tax = subtotal * 0.05;
+    const total = subtotal + tax;
+    const summaryEl = document.getElementById('summary-items');
+    summaryEl.innerHTML = summaryItems.length === 0
+      ? `<div style="color:var(--text-muted); font-size:0.8rem; font-family:var(--font-mono);">No items added yet.</div>`
+      : summaryItems.map(item => `
+          <div style="display:flex; justify-content:space-between; font-size:0.82rem;">
+            <span style="color:var(--text-secondary);">${item.name} × ${item.qty}</span>
+            <span style="font-family:var(--font-mono); color:var(--text-primary);">${formatCurrency(item.lineTotal)}</span>
+          </div>`).join('');
+    document.getElementById('sum-subtotal').textContent = formatCurrency(subtotal);
+    document.getElementById('sum-tax').textContent = formatCurrency(tax);
+    document.getElementById('sum-total').textContent = formatCurrency(total);
+  }
+
+  async function submitOrder() {
+    const vendorId = parseInt(document.getElementById('vendor-select').value);
+    if (!vendorId) { showToast('Please select a vendor.', 'error'); return; }
+    const items = [];
+    document.querySelectorAll('.product-row').forEach(row => {
+      const opt = row.querySelector('select')?.selectedOptions[0];
+      const qty = parseInt(row.querySelector('input[type=number]')?.value) || 0;
+      if (opt?.value && qty > 0) items.push({ product_id: parseInt(opt.value), quantity: qty });
+    });
+    if (items.length === 0) { showToast('Add at least one product with quantity > 0.', 'error'); return; }
+    const btn = document.querySelector('button[onclick="submitOrder()"]');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Creating…';
+    try {
+      const po = await API.createPurchaseOrder({ vendor_id: vendorId, items });
+      showToast('Purchase Order created!', 'success', 1500);
+      setTimeout(() => window.location.href = `/receipt/${po.id}`, 1200);
+    } catch (err) {
+      showToast(err.message, 'error', 5000);
+      btn.disabled = false;
+      btn.innerHTML = '🛒 Create Purchase Order';
+    }
+  }
+
+  async function generateDescription() {
+    const sel = document.getElementById('ai-product-select');
+    const opt = sel.selectedOptions[0];
+    if (!opt?.value) { showToast('Select a product first.', 'info'); return; }
+    const resultEl = document.getElementById('ai-result');
+    const textEl = document.getElementById('ai-text');
+    resultEl.style.display = 'block';
+    textEl.textContent = 'Generating description…';
+    try {
+      const res = await API.getAIDescription(opt.dataset.name || opt.text, 'Industrial');
+      textEl.textContent = res.description;
+      showToast('Description generated!', 'success');
+    } catch (err) {
+      textEl.textContent = 'Failed to generate description.';
+      showToast(err.message, 'error');
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

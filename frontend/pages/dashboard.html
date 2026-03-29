@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Primora — Dashboard</title>
+  <link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+<body>
+
+<nav class="navbar" id="main-navbar"></nav>
+
+<div class="page-wrapper">
+
+  <!-- Tagline Banner -->
+  <div class="tagline-banner">
+    <span style="font-size:1.2rem;">✦</span>
+    <span class="tagline-text">Smart Purchase Order &amp; Vendor Management System</span>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+    <div>
+      <div class="page-title">Purchase <span>Orders</span></div>
+      <div class="page-subtitle">All orders · Real-time stock tracking</div>
+    </div>
+    <a href="/create-po" class="btn btn-primary btn-lg">+ New Purchase Order</a>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card skeleton" style="height:90px;"></div>
+    <div class="stat-card skeleton" style="height:90px;"></div>
+    <div class="stat-card skeleton" style="height:90px;"></div>
+    <div class="stat-card skeleton" style="height:90px;"></div>
+  </div>
+
+  <!-- Vendor Search + Products side by side -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:1.5rem;">
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">VENDORS</span>
+        <span class="ai-badge">🔍 Search</span>
+      </div>
+      <div class="card-body" style="padding-top:1rem;">
+        <div class="search-bar form-group" style="margin-bottom:1rem;">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="form-control" id="vendor-search" placeholder="Search by name or contact…" oninput="searchVendors(this.value)" />
+        </div>
+        <div id="vendor-list" style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:0.5rem;">
+          <div class="skeleton" style="height:40px; border-radius:6px;"></div>
+          <div class="skeleton" style="height:40px; border-radius:6px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">QUICK STATS</span>
+      </div>
+      <div class="card-body" id="quick-stats" style="padding-top:1rem;">
+        <div class="skeleton" style="height:40px; border-radius:6px; margin-bottom:8px;"></div>
+        <div class="skeleton" style="height:40px; border-radius:6px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Products Grid with Images -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-header">
+      <span class="card-title">PRODUCTS CATALOG</span>
+      <span id="product-count" class="ai-badge">Loading…</span>
+    </div>
+    <div class="card-body">
+      <div class="products-grid" id="products-grid">
+        <div class="skeleton" style="height:220px; border-radius:10px;"></div>
+        <div class="skeleton" style="height:220px; border-radius:10px;"></div>
+        <div class="skeleton" style="height:220px; border-radius:10px;"></div>
+        <div class="skeleton" style="height:220px; border-radius:10px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Purchase Orders Table -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-header">
+      <span class="card-title">ALL PURCHASE ORDERS</span>
+      <span id="po-count" class="ai-badge">Loading…</span>
+    </div>
+    <div class="table-wrapper">
+      <table class="po-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Reference No</th>
+            <th>Vendor</th>
+            <th>Items</th>
+            <th>Subtotal</th>
+            <th>Tax (5%)</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="po-tbody">
+          <tr><td colspan="10" style="padding:2rem; text-align:center;"><div class="spinner"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- App Reviews Section -->
+  <div class="reviews-section" id="app-reviews"></div>
+
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/shared.js"></script>
+<script>
+  if (!sessionStorage.getItem('poms_auth')) window.location.href = '/';
+
+  // Product images from Unsplash (mapped by index to seed products)
+  const PRODUCT_IMAGES = [
+    'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400&q=80',  // drill
+    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',  // bolts
+    'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=400&q=80', // tools
+    'https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=400&q=80', // gloves
+    'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400&q=80', // lubricant
+    'https://images.unsplash.com/photo-1614619903066-20cd4f770b30?w=400&q=80', // cable
+    'https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=400&q=80', // bearing
+    'https://images.unsplash.com/photo-1609205807107-2df1f1bf6cb3?w=400&q=80', // caliper
+    'https://images.unsplash.com/photo-1530124566582-a618bc2615dc?w=400&q=80', // welding
+    'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&q=80',  // jack
+  ];
+
+  // Shop contact numbers for products
+  const SHOP_CONTACTS = [
+    '+91 98765 43210', '+91 87654 32109', '+91 76543 21098',
+    '+91 65432 10987', '+91 54321 09876', '+91 43210 98765',
+    '+91 32109 87654', '+91 21098 76543', '+91 10987 65432',
+    '+91 99887 76655',
+  ];
+
+  let allPOs = [], allVendors = [], allProducts = [];
+
+  async function init() {
+    injectNavbar('dashboard');
+    injectWhatsApp();
+    injectFooter();
+    renderReviewsSection('app-reviews');
+
+    try {
+      [allPOs, allVendors, allProducts] = await Promise.all([
+        API.getPurchaseOrders(), API.getVendors(), API.getProducts()
+      ]);
+      renderStats();
+      renderPOTable(allPOs);
+      renderVendors(allVendors);
+      renderProducts(allProducts);
+      renderQuickStats();
+    } catch (err) {
+      showToast('Failed to load data: ' + err.message, 'error');
+    }
+  }
+
+  function renderStats() {
+    const total = allPOs.length;
+    const pending = allPOs.filter(p => p.status === 'Pending').length;
+    const completed = allPOs.filter(p => p.status === 'Completed').length;
+    const revenue = allPOs.reduce((s, p) => s + p.total_amount, 0);
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value">${total}</div><div class="stat-icon">📋</div></div>
+      <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value accent">${pending}</div><div class="stat-icon">⏳</div></div>
+      <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value">${completed}</div><div class="stat-icon">✅</div></div>
+      <div class="stat-card"><div class="stat-label">Total Value</div><div class="stat-value" style="font-size:1.4rem;">${formatCurrency(revenue)}</div><div class="stat-icon">💰</div></div>
+    `;
+  }
+
+  function renderQuickStats() {
+    document.getElementById('quick-stats').innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex; justify-content:space-between; padding:10px 12px; background:var(--bg-elevated); border-radius:8px; border:1px solid var(--border);">
+          <span style="color:var(--text-secondary); font-size:0.875rem;">Total Vendors</span>
+          <span style="font-family:var(--font-mono); color:var(--accent);">${allVendors.length}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:10px 12px; background:var(--bg-elevated); border-radius:8px; border:1px solid var(--border);">
+          <span style="color:var(--text-secondary); font-size:0.875rem;">Total Products</span>
+          <span style="font-family:var(--font-mono); color:var(--success);">${allProducts.length}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:10px 12px; background:var(--bg-elevated); border-radius:8px; border:1px solid var(--border);">
+          <span style="color:var(--text-secondary); font-size:0.875rem;">Low Stock Items</span>
+          <span style="font-family:var(--font-mono); color:var(--warning);">${allProducts.filter(p => p.stock_level < 30).length}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:10px 12px; background:var(--bg-elevated); border-radius:8px; border:1px solid var(--border);">
+          <span style="color:var(--text-secondary); font-size:0.875rem;">Support (WhatsApp)</span>
+          <a href="https://wa.me/918604996636" target="_blank" style="font-family:var(--font-mono); color:var(--whatsapp); text-decoration:none; font-size:0.8rem;">+91 86049 96636</a>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderProducts(products) {
+    document.getElementById('product-count').textContent = `${products.length} items`;
+    const grid = document.getElementById('products-grid');
+    if (!products.length) {
+      grid.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">No products yet.</div></div>`;
+      return;
+    }
+    grid.innerHTML = products.map((p, i) => {
+      const img = PRODUCT_IMAGES[i % PRODUCT_IMAGES.length];
+      const mobile = SHOP_CONTACTS[i % SHOP_CONTACTS.length];
+      const stockColor = p.stock_level < 30 ? 'var(--warning)' : p.stock_level < 10 ? 'var(--accent)' : 'var(--text-muted)';
+      // Product-level reviews (3 random ones per product)
+      const productReviews = generateProductReviews(p.name);
+      return `
+        <div class="product-card">
+          <img class="product-card-img"
+               src="${img}"
+               alt="${p.name}"
+               onerror="this.src='https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400&q=80'" />
+          <div class="product-card-body">
+            <div class="product-card-name">${p.name}</div>
+            <div class="product-card-sku">SKU: ${p.sku}</div>
+            <div class="product-card-price">${formatCurrency(p.unit_price)}</div>
+            <div class="product-card-stock" style="color:${stockColor};">Stock: ${p.stock_level} units</div>
+            <div class="product-card-mobile">📱 ${mobile}</div>
+            <!-- Product Reviews -->
+            <div style="margin-top:10px; border-top:1px solid var(--border); padding-top:10px;">
+              <div style="font-family:var(--font-mono); font-size:0.58rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px;">Customer Reviews</div>
+              ${productReviews.map(r => `
+                <div style="margin-bottom:8px;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;">
+                    <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:500;">${r.name}</span>
+                    ${renderStars(r.rating)}
+                  </div>
+                  <div style="font-size:0.72rem; color:var(--text-muted); font-style:italic;">"${r.comment}"</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function generateProductReviews(productName) {
+    const reviewPool = [
+      { name: 'Amit K.', rating: 5, comment: 'Excellent quality, highly recommend!' },
+      { name: 'Sneha R.', rating: 4, comment: 'Good product, fast delivery.' },
+      { name: 'Rohit M.', rating: 5, comment: 'Exactly as described. Will order again.' },
+      { name: 'Divya S.', rating: 4, comment: 'Durable and reliable for industrial use.' },
+      { name: 'Karan P.', rating: 5, comment: 'Best in class. Worth every rupee.' },
+      { name: 'Meera J.', rating: 4, comment: 'Great value for money.' },
+    ];
+    // Deterministic selection based on product name length
+    const offset = productName.length % reviewPool.length;
+    return [reviewPool[offset], reviewPool[(offset + 1) % reviewPool.length], reviewPool[(offset + 2) % reviewPool.length]];
+  }
+
+  function renderPOTable(pos) {
+    const tbody = document.getElementById('po-tbody');
+    document.getElementById('po-count').textContent = `${pos.length} records`;
+    if (!pos.length) {
+      tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No purchase orders yet.</div></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = pos.map((po, i) => {
+      const subtotal = po.total_amount / 1.05;
+      const tax = po.total_amount - subtotal;
+      return `
+        <tr onclick="window.location.href='/receipt/${po.id}'">
+          <td style="color:var(--text-muted); font-family:var(--font-mono); font-size:0.75rem;">${i+1}</td>
+          <td><span class="ref-no">${po.reference_no}</span></td>
+          <td style="color:var(--text-primary);">${po.vendor?.name || '—'}</td>
+          <td style="font-family:var(--font-mono); font-size:0.8rem;">${(po.items||[]).length} item(s)</td>
+          <td class="amount">${formatCurrency(subtotal)}</td>
+          <td style="color:var(--warning); font-family:var(--font-mono); font-size:0.8rem;">${formatCurrency(tax)}</td>
+          <td class="amount" style="color:var(--accent);">${formatCurrency(po.total_amount)}</td>
+          <td>${statusBadge(po.status)}</td>
+          <td style="font-size:0.8rem; color:var(--text-muted);">${formatDate(po.created_at)}</td>
+          <td><a href="/receipt/${po.id}" class="btn btn-ghost btn-sm">View →</a></td>
+        </tr>`;
+    }).join('');
+  }
+
+  function renderVendors(vendors) {
+    const el = document.getElementById('vendor-list');
+    if (!vendors.length) { el.innerHTML = `<div class="empty-text" style="padding:1rem 0;">No vendors found.</div>`; return; }
+    el.innerHTML = vendors.map(v => `
+      <div style="display:flex; justify-content:space-between; align-items:center;
+                  padding:8px 12px; background:var(--bg-elevated);
+                  border-radius:6px; border:1px solid var(--border);">
+        <div>
+          <div style="font-size:0.875rem; color:var(--text-primary); font-weight:500;">${v.name}</div>
+          <div style="font-size:0.7rem; color:var(--text-muted); font-family:var(--font-mono);">${v.contact}</div>
+        </div>
+        <div style="font-size:0.75rem; color:var(--warning);">
+          ${'★'.repeat(Math.round(v.rating))}${'☆'.repeat(5-Math.round(v.rating))}
+          <span style="color:var(--text-muted); font-size:0.65rem;">${v.rating}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  let searchTimer;
+  async function searchVendors(query) {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(async () => {
+      try { renderVendors(await API.getVendors(query)); } catch(e) { showToast('Search failed', 'error'); }
+    }, 300);
+  }
+
+  init();
+</script>
+</body>
+</html>
