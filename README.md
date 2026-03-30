@@ -1,4 +1,4 @@
-# 📦 POMS — Purchase Order Management System
+# 📦 Primora — Smart Purchase Order & Vendor Management System
 
 A production-quality mini ERP system for managing Vendors, Products, and Purchase Orders. Built with **FastAPI + PostgreSQL + SQLAlchemy + Vanilla JS**.
 
